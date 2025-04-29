@@ -1,0 +1,25 @@
+# Binários para programas
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Arquivos de teste
+*.test
+
+# Arquivos de saída
+*.out
+
+# Arquivos de dependências
+/vendor/
+
+# Arquivos de IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Arquivos de ambiente
+.env
+.env.local 
