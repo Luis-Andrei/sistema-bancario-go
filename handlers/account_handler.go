@@ -1,10 +1,10 @@
 package handlers
 
 import (
+	"bank-server/models"
 	"database/sql"
 	"encoding/json"
 	"net/http"
-	"projeto/models"
 	"strconv"
 
 	"github.com/gorilla/mux"

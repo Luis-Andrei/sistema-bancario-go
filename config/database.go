@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 
 	_ "github.com/lib/pq"
 )
@@ -19,31 +18,19 @@ const (
 	dbname   = "banco"    // Nome do banco de dados
 )
 
-func InitDB() *sql.DB {
-	// Verifica se as variáveis de ambiente estão definidas
-	dbUser := os.Getenv("DB_USER")
-	if dbUser == "" {
-		dbUser = user
-	}
-
-	dbPassword := os.Getenv("DB_PASSWORD")
-	if dbPassword == "" {
-		dbPassword = password
-	}
-
+func GetDB() *sql.DB {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		host, port, dbUser, dbPassword, dbname)
+		host, port, user, password, dbname)
 
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
-		log.Fatal("Erro ao conectar ao banco de dados:", err)
+		log.Fatal(err)
 	}
 
 	err = db.Ping()
 	if err != nil {
-		log.Fatal("Erro ao verificar conexão com o banco de dados:", err)
+		log.Fatal(err)
 	}
 
-	fmt.Println("Conexão com o banco de dados estabelecida com sucesso!")
 	return db
 }

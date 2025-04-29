@@ -3,50 +3,59 @@ package main
 import (
 	"log"
 	"net/http"
-	"projeto/config"
-	"projeto/handlers"
+	"time"
 
-	"github.com/gorilla/csrf"
+	"bank-server/db"
+	"bank-server/handlers"
+
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 )
 
-func main() {
-	// Inicializa o banco de dados
-	db := config.InitDB()
-	defer db.Close()
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		log.Printf("%s %s %s %v", r.Method, r.RequestURI, r.RemoteAddr, time.Since(start))
+	})
+}
 
-	// Cria a tabela de contas se não existir
-	_, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS accounts (
-			id SERIAL PRIMARY KEY,
-			number VARCHAR(20) UNIQUE NOT NULL,
-			balance DECIMAL(10,2) NOT NULL DEFAULT 0,
-			created_at TIMESTAMP NOT NULL
-		)
-	`)
-	if err != nil {
-		log.Fatal(err)
+func main() {
+	// Carrega variáveis de ambiente
+	if err := godotenv.Load(); err != nil {
+		log.Fatal("Erro ao carregar arquivo .env:", err)
 	}
 
-	// Inicializa o handler
-	accountHandler := &handlers.AccountHandler{DB: db}
+	// Conecta ao banco de dados
+	if err := db.Connect(); err != nil {
+		log.Fatal("Erro ao conectar ao banco de dados:", err)
+	}
+	defer db.DB.Close()
 
-	// Configura o router
-	router := mux.NewRouter()
+	// Configura o roteador
+	r := mux.NewRouter()
 
 	// Configura as rotas
-	router.HandleFunc("/accounts", accountHandler.CreateAccount).Methods("POST")
-	router.HandleFunc("/accounts/{id}", accountHandler.GetAccount).Methods("GET")
-	router.HandleFunc("/accounts/{id}/deposit", accountHandler.Deposit).Methods("POST")
-	router.HandleFunc("/accounts/{id}/withdraw", accountHandler.Withdraw).Methods("POST")
+	r.HandleFunc("/accounts", handlers.CreateAccount).Methods("POST")
+	r.HandleFunc("/accounts/{id:[0-9]+}", handlers.GetAccount).Methods("GET")
+	r.HandleFunc("/accounts/{id:[0-9]+}/deposit", handlers.Deposit).Methods("POST")
+	r.HandleFunc("/accounts/{id:[0-9]+}/withdraw", handlers.Withdraw).Methods("POST")
+	r.HandleFunc("/transfer", handlers.Transfer).Methods("POST")
 
-	// Configura a proteção CSRF
-	CSRF := csrf.Protect(
-		[]byte("32-byte-long-auth-key"), // Chave secreta para o CSRF
-		csrf.Secure(false),              // Desativa em desenvolvimento
-	)
+	// Aplica o middleware de logging
+	handler := loggingMiddleware(r)
 
-	// Inicia o servidor
+	// Configura o servidor
+	server := &http.Server{
+		Addr:         ":8080",
+		Handler:      handler,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
 	log.Println("Servidor iniciado na porta 8080")
-	log.Fatal(http.ListenAndServe(":8080", CSRF(router)))
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatal("Erro ao iniciar servidor:", err)
+	}
 }
